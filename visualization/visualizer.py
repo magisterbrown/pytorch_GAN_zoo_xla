@@ -5,8 +5,9 @@ import torchvision.transforms as Transforms
 import torchvision.utils as vutils
 import numpy as np
 import random
+from torchvision.transforms import InterpolationMode
 
-vis = visdom.Visdom()
+#vis = visdom.Visdom()
 
 
 def resizeTensor(data, out_size_image):
@@ -17,9 +18,9 @@ def resizeTensor(data, out_size_image):
     outdata = torch.empty(out_data_size)
     data = torch.clamp(data, min=-1, max=1)
 
-    interpolationMode = 0
+    interpolationMode = InterpolationMode.NEAREST
     if out_size_image[0] < data.size()[0] and out_size_image[1] < data.size()[1]:
-        interpolationMode = 2
+        interpolationMode = InterpolationMode.BILINEAR
 
     transform = Transforms.Compose([Transforms.Normalize((-1., -1., -1.), (2, 2, 2)),
                                     Transforms.ToPILImage(),
