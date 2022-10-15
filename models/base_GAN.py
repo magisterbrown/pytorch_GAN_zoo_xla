@@ -31,6 +31,7 @@ class BaseGAN():
                  lambdaGP=0.,
                  epsilonD=0.,
                  GDPP=False,
+                 device=None,
                  **kwargs):
         r"""
         Args:
@@ -71,12 +72,16 @@ class BaseGAN():
             self.trainTmp = BaseConfig()
 
         self.useGPU = useGPU and torch.cuda.is_available()
-        if self.useGPU:
-            self.device = torch.device("cuda:0")
-            self.n_devices = torch.cuda.device_count()
-        else:
-            self.device = torch.device("cpu")
+        if device:
+            self.device = device
             self.n_devices = 1
+        else:
+            if self.useGPU:
+                self.device = torch.device("cuda:0")
+                self.n_devices = torch.cuda.device_count()
+            else:
+                self.device = torch.device("cpu")
+                self.n_devices = 1
 
         # Latent vector dimension
         self.config.noiseVectorDim = dimLatentVector
