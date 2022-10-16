@@ -1,10 +1,12 @@
 from .progressive_gan import ProgressiveGAN
 from .utils.utils import  finiteCheck
 import torch_xla.core.xla_model as xm
+from .loss_criterions.gradient_losses import WGANGPGradientPenalty
 
 class XlaGan(ProgressiveGAN):
     def optimizeParameters(self, input_batch, inputLabels=None):
 
+        allLosses = dict()
         self.real_input = input_batch.to(self.device) 
         n_samples = self.real_input.size()[0]
         
@@ -21,7 +23,26 @@ class XlaGan(ProgressiveGAN):
 
         lossDFake = self.lossCriterion.getCriterion(predFakeD, False)
         lossD += lossDFake
+
+        print(self.config.lambdaGP)
+         # #3 WGANGP gradient loss
+        self.config.lambdaGP = 0
+        if self.config.lambdaGP > 0:
+            allLosses["lossD_Grad"] = WGANGPGradientPenalty(self.real_input,
+                                                            predFakeG,
+                                                            self.netD,
+                                                            self.config.lambdaGP,
+                                                            backward=True)
+
+        # #4 Epsilon loss
+        if self.config.epsilonD > 0:
+            lossEpsilon = (predRealD[:, 0] ** 2).sum() * self.config.epsilonD
+            lossD += lossEpsilon
+            allLosses["lossD_Epsilon"] = lossEpsilon
+
+
         print(lossD)
+        print(allLosses)
         #print(self.config.lambdaGP )
         #print(self.config.epsilonD )
         #print(self.config.logisticGradReal )
