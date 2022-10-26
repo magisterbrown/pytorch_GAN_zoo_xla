@@ -25,7 +25,6 @@ class XlaGan(ProgressiveGAN):
         lossDFake = self.lossCriterion.getCriterion(predFakeD, False)
         lossD += lossDFake
 
-        print(self.config.lambdaGP)
          # #3 WGANGP gradient loss
         if self.config.lambdaGP > 0:
             allLosses["lossD_Grad"] = WGANGPGradientPenalty(self.real_input,
@@ -41,11 +40,6 @@ class XlaGan(ProgressiveGAN):
             allLosses["lossD_Epsilon"] = lossEpsilon
 
 
-        #print(lossD)
-        print(allLosses)
-        ##print(self.config.lambdaGP )
-        ##print(self.config.epsilonD )
-        ##print(self.config.logisticGradReal )
         lossD.backward(retain_graph=True)
         finiteCheck(self.getOriginalD().parameters())
         self.optimizerD.step()
@@ -75,3 +69,4 @@ class XlaGan(ProgressiveGAN):
             avg_p.mul_(0.999).add_(alpha=0.001, other=p.data)
 
         xm.mark_step()
+        return 0
