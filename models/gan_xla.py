@@ -15,14 +15,13 @@ class XlaGan(ProgressiveGAN):
 
         predRealD = self.netD(self.real_input, False)
 
-        lossD = self.lossCriterion.getCriterion(predRealD, True)
-        print(lossD)
+        allLosses['lossD_real'] = self.lossCriterion.getCriterion(predRealD, True)
         # #2 Fake data
         inputLatent, targetRandCat = self.buildNoiseData(n_samples)
         predFakeG = self.netG(inputLatent).detach()
         predFakeD = self.netD(predFakeG, False)
 
-        lossDFake = self.lossCriterion.getCriterion(predFakeD, False)
+        allLosses['lossDFake'] = self.lossCriterion.getCriterion(predFakeD, False)
         lossD += lossDFake
 
          # #3 WGANGP gradient loss
@@ -56,9 +55,8 @@ class XlaGan(ProgressiveGAN):
         predFakeD = self.netD(predFakeG, False)
 
         # #3 GAN criterion
-        lossGFake = self.lossCriterion.getCriterion(predFakeD, True)
+        allLosses['lossGFake'] = self.lossCriterion.getCriterion(predFakeD, True)
         lossGFake.backward(retain_graph=True)
-        print(lossGFake)
 
         finiteCheck(self.getOriginalG().parameters())
         self.optimizerG.step()
@@ -69,4 +67,4 @@ class XlaGan(ProgressiveGAN):
             avg_p.mul_(0.999).add_(alpha=0.001, other=p.data)
 
         xm.mark_step()
-        return 0
+        return allLosses
