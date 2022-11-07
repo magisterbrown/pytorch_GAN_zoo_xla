@@ -43,7 +43,7 @@ class XlaGan(ProgressiveGAN):
 
         lossD.backward(retain_graph=True)
         finiteCheck(self.getOriginalD().parameters())
-        self.optimizerD.step()
+        xm.optimizer_step(self.optimizerD)
 
         lossD = 0
         # Update the generator
@@ -62,7 +62,7 @@ class XlaGan(ProgressiveGAN):
         lossGFake.backward(retain_graph=True)
 
         finiteCheck(self.getOriginalG().parameters())
-        self.optimizerG.step()
+        xm.optimizer_step(self.optimizerG)
 
         # Update the moving average if relevant
         for p, avg_p in zip(self.getOriginalG().parameters(),
