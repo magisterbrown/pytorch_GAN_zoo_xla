@@ -56,11 +56,12 @@ def finiteCheck(parameters):
     parameters = list(filter(lambda p: p.grad is not None, parameters))
 
     for p in parameters:
-        infGrads = isinf(p.grad.data)
-        p.grad.data[infGrads] = 0
+        p.grad.data = torch.nan_to_num(p.grad.data,0,0,0)
+        #infGrads = isinf(p.grad.data)
+        #p.grad.data[infGrads] = 0
 
-        nanGrads = isnan(p.grad.data)
-        p.grad.data[nanGrads] = 0
+        #nanGrads = isnan(p.grad.data)
+        #p.grad.data[nanGrads] = 0
 
 
 def prepareClassifier(module, outFeatures):
