@@ -71,3 +71,32 @@ class XlaGan(ProgressiveGAN):
 
         xm.mark_step()
         return allLosses
+
+    def getNetG(self):
+        return xmp.MpModelWrapper(super().getNetG())
+
+    def getNetD(self):
+        return xmp.MpModelWrapper(super().getNetD())
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
