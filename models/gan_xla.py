@@ -3,8 +3,13 @@ from .utils.utils import  finiteCheck
 import torch_xla.core.xla_model as xm
 import torch
 from .loss_criterions.gradient_losses import WGANGPGradientPenalty
+import torch_xla.distributed.xla_multiprocessing as xmp
 
 class XlaGan(ProgressiveGAN):
+    def  __init__(self,gnet=None,dnet=None, *args, **kwargs):
+        self.gnet=gnet
+        self.dnet=dnet
+        super().__init__(*args, **kwargs) 
     def optimizeParameters(self, input_batch, inputLabels=None):
 
         allLosses = dict()
@@ -73,10 +78,16 @@ class XlaGan(ProgressiveGAN):
         return allLosses
 
     def getNetG(self):
-        return xmp.MpModelWrapper(super().getNetG())
+        if not self.gnet:
+            return super().getNetG()
+        return self.gnet
+        #return xmp.MpModelWrapper(super().getNetG())
 
     def getNetD(self):
-        return xmp.MpModelWrapper(super().getNetD())
+        if not self.dnet:
+            return super().getNetD()
+    #def getNetD(self):
+    #    return xmp.MpModelWrapper(super().getNetD())
 
 
 
