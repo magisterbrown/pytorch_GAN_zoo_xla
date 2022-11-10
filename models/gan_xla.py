@@ -19,7 +19,7 @@ class XlaGan(ProgressiveGAN):
         
         self.optimizerD.zero_grad()
 
-        predRealD = self.netD(self.real_input, False)
+        predRealD = self.netD(self.real_input,  getFeature = False)
 
         lossD = self.lossCriterion.getCriterion(predRealD, True)
         allLosses['lossD_real'] = lossD.item()
@@ -71,9 +71,9 @@ class XlaGan(ProgressiveGAN):
         xm.optimizer_step(self.optimizerG)
 
         # Update the moving average if relevant
-        for p, avg_p in zip(self.getOriginalG().parameters(),
-                            self.getOriginalAvgG().parameters()):
-            avg_p.mul_(0.999).add_(alpha=0.001, other=p.data)
+        #for p, avg_p in zip(self.getOriginalG().parameters(),
+        #                    self.getOriginalAvgG().parameters()):
+        #    avg_p.mul_(0.999).add_(alpha=0.001, other=p.data)
 
         xm.mark_step()
         return allLosses
@@ -87,21 +87,21 @@ class XlaGan(ProgressiveGAN):
     def getNetD(self):
         if not self.dnet:
             return super().getNetD()
-        return self.gnet
+        return self.dnet
     #def getNetD(self):
     #    return xmp.MpModelWrapper(super().getNetD())
-    #def updateSolversDevice(self, buildAvG=True):
-    #    super().updateSolversDevice(False)
-    
     def updateSolversDevice(self, buildAvG=True):
-        self.netD = self.netD.to(self.device)
-        self.netG = self.netG.to(self.device)
+        super().updateSolversDevice(False)
+    
+    #def updateSolversDevice(self, buildAvG=True):
+    #    self.netD = self.netD.to(self.device)
+    #    self.netG = self.netG.to(self.device)
 
-        self.optimizerD = self.getOptimizerD()
-        self.optimizerG = self.getOptimizerG()
+    #    self.optimizerD = self.getOptimizerD()
+    #    self.optimizerG = self.getOptimizerG()
 
-        self.optimizerD.zero_grad()
-        self.optimizerG.zero_grad()
+    #    self.optimizerD.zero_grad()
+    #    self.optimizerG.zero_grad()
 
 
 
