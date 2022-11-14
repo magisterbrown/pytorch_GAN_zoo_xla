@@ -35,9 +35,10 @@ def resizeTensor(data, out_size_image):
 
 
 def publishTensors(data, out_size_image, caption="", window_token=None, env="main", nrow=16):
-    global vis
-    outdata = resizeTensor(data, out_size_image)
-    return vis.images(outdata, opts=dict(caption=caption), win=window_token, env=env, nrow=nrow)
+    #global vis
+    #outdata = resizeTensor(data, out_size_image)
+    #return vis.images(outdata, opts=dict(caption=caption), win=window_token, env=env, nrow=nrow)
+    return 0
 
 
 def saveTensor(data, out_size_image, path):
@@ -47,30 +48,31 @@ def saveTensor(data, out_size_image, path):
 
 def publishLoss(data, name="", window_tokens=None, env="main"):
 
-    if window_tokens is None:
-        window_tokens = {key: None for key in data}
+    #if window_tokens is None:
+    #    window_tokens = {key: None for key in data}
 
-    for key, plot in data.items():
+    #for key, plot in data.items():
 
-        if key in ("scale", "iter"):
-            continue
+    #    if key in ("scale", "iter"):
+    #        continue
 
-        nItems = len(plot)
-        inputY = np.array([plot[x] for x in range(nItems) if plot[x] is not None])
-        inputX = np.array([data["iter"][x] for x in range(nItems) if plot[x] is not None])
+    #    nItems = len(plot)
+    #    inputY = np.array([plot[x] for x in range(nItems) if plot[x] is not None])
+    #    inputX = np.array([data["iter"][x] for x in range(nItems) if plot[x] is not None])
 
-        opts = {'title': key + (' scale %d loss over time' % data["scale"]),
-                'legend': [key], 'xlabel': 'iteration', 'ylabel': 'loss'}
+    #    opts = {'title': key + (' scale %d loss over time' % data["scale"]),
+    #            'legend': [key], 'xlabel': 'iteration', 'ylabel': 'loss'}
 
-        window_tokens[key] = vis.line(X=inputX, Y=inputY, opts=opts,
-                                      win=window_tokens[key], env=env)
+    #    window_tokens[key] = vis.line(X=inputX, Y=inputY, opts=opts,
+    #                                  win=window_tokens[key], env=env)
 
-    return window_tokens
+    #return window_tokens
+    return 0
 
 
 def delete_env(name):
-
-    vis.delete_env(name)
+    pass
+    #vis.delete_env(name)
 
 
 def publishScatterPlot(data, name="", window_token=None):
@@ -89,21 +91,22 @@ def publishScatterPlot(data, name="", window_token=None):
         ID of the window where the data are plotted
     """
 
-    if not isinstance(data, list):
-        raise ValueError("Input data should be a list of tensors")
+    #if not isinstance(data, list):
+    #    raise ValueError("Input data should be a list of tensors")
 
-    nPlots = len(data)
-    colors = []
+    #nPlots = len(data)
+    #colors = []
 
-    random.seed(None)
+    #random.seed(None)
 
-    for item in range(nPlots):
-        N = data[item].size()[0]
-        colors.append(torch.randint(0, 256, (1, 3)).expand(N, 3))
+    #for item in range(nPlots):
+    #    N = data[item].size()[0]
+    #    colors.append(torch.randint(0, 256, (1, 3)).expand(N, 3))
 
-    colors = torch.cat(colors, dim=0).numpy()
-    opts = {'markercolor': colors,
-            'caption': name}
-    activeData = torch.cat(data, dim=0)
+    #colors = torch.cat(colors, dim=0).numpy()
+    #opts = {'markercolor': colors,
+    #        'caption': name}
+    #activeData = torch.cat(data, dim=0)
 
-    return vis.scatter(activeData, opts=opts, win=window_token, name=name)
+    #return vis.scatter(activeData, opts=opts, win=window_token, name=name)
+    pass
