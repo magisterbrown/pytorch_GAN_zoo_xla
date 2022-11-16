@@ -59,7 +59,6 @@ class BaseGAN():
             GDPP (bool): if true activate GDPP loss https://arxiv.org/abs/1812.00068
 
         """
-
         if lossMode not in ['MSE', 'WGANGP', 'DCGAN', 'Logistic']:
             raise ValueError(
                 "lossMode should be one of the following : ['MSE', 'WGANGP', \
