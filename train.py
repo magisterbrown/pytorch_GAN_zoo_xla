@@ -57,7 +57,8 @@ if __name__ == "__main__":
     parser.add_argument('-S', '--Scale_iter', help="If it applies, scale to work\
                         on")
     parser.add_argument('-v', '--partitionValue', help="Partition's value",
-                        type=str, dest="partition_value")
+    parser.add_argument('-p', '--pidCopy', help="Process to copy env from",
+                        type=str, dest="pid")
 
     # Retrieve the model we want to launch
     baseArgs, unknown = parser.parse_known_args()
@@ -92,6 +93,9 @@ if __name__ == "__main__":
     if configPath is None:
         raise ValueError("You need to input a configuratrion file")
 
+    pid = kwargs.get("pid", None)
+    if pid is not None:
+        copy
     with open(kwargs["configPath"], 'rb') as file:
         trainingConfig = json.load(file)
 
