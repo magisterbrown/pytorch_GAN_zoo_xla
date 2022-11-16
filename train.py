@@ -15,7 +15,8 @@ def getTrainer(name):
 
     match = {"PGAN": ("progressive_gan_trainer", "ProgressiveGANTrainer"),
              "StyleGAN":("styleGAN_trainer", "StyleGANTrainer"),
-             "DCGAN": ("DCGAN_trainer", "DCGANTrainer")}
+             "DCGAN": ("DCGAN_trainer", "DCGANTrainer"),
+             "XLAPGAN": ("pgan_xla_trainer","PganXlaTrainer") }
 
     if name not in match:
         raise AttributeError("Invalid module name")
