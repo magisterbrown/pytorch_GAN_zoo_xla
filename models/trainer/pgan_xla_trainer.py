@@ -5,6 +5,8 @@ import torch_xla.core.xla_model as xm
 import torch_xla.distributed.xla_multiprocessing as xmp
 import webdataset as wds
 import torch
+import numpy as np
+import cv2
 
 class PganXlaTrainer(GANTrainer):
 
@@ -60,7 +62,6 @@ class PganXlaTrainer(GANTrainer):
         xmp.spawn(self.mpf, args=(flags), nprocs=8, start_method='fork')
 
     def mpf(self, index, flags):
-        print(flags)
         torch.manual_seed(420)
         xm.rendezvous('init')
         self.model.meme+=1
@@ -68,24 +69,45 @@ class PganXlaTrainer(GANTrainer):
         self.model.updateSolverDeviceTpu(device)
         n_scales = len(self.modelConfig.depthScales)
 
-        if xm.is_master_ordinal():
-            print(list(range(self.startScale, n_scales)))
         for scale in range(self.startScale, n_scales):
             dbLoader = self.getDBLoader(scale)
+            if xm.is_master_ordinal():
+                bch = next(iter(dbLoader))
+                print(bch[0].shape)
+                print(bch[1])
 
     def getDBLoader(self, scale):
         size = pow(2,scale+1)
-        shard = f'gs://monet-cool-gan/shards_monet/monet_shard_{xm.get_ordinal()}.tar'
 
-        ds = wds.WebDataset(shard).decode().map(proc.proc)
+        shard = f'gs://monet-cool-gan/cifar_fortpu/b_{xm.get_ordinal()}.tar'
+        proc = Allproc('npy','lable',size)
+        ds = wds.WebDataset(shard).decode().shuffle(12).map(proc.proc)
         loader = torch.utils.data.DataLoader(ds, batch_size=4, drop_last=True)
 
+        return loader
 
 
+class Allproc:
+    def __init__(self, key: str, lable: str, side: int):
+        self.key = key
+        self.side = side        
+        self.lable = lable
 
+        self.lab_num = ['airplane',  
+                        'automobile',  
+                        'bird',  
+                        'cat',  
+                        'deer',  
+                        'dog',  
+                        'frog',  
+                        'horse',  
+                        'ship',  
+                        'truck']
 
-
-
-
-
-
+    def proc(self, el):
+        lable = el[self.lable]
+        el = el[self.key]
+        el = cv2.resize(el, (self.side,self.side))
+        el = np.moveaxis(el,2,0).astype(np.float32)
+        el = (el/127.5)-1
+        return el, self.lab_num.index(lable.decode())
