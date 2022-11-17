@@ -71,11 +71,38 @@ class PganXlaTrainer(GANTrainer):
 
         for scale in range(self.startScale, n_scales):
             dbLoader = self.getDBLoader(scale)
-            if xm.is_master_ordinal():
-                bch = next(iter(dbLoader))
-                print(bch[0].shape)
-                print(bch[1])
+            
 
+            shiftIter = 0
+
+            shiftAlpha = 0
+
+            while shiftIter < self.modelConfig.maxIterAtScale[scale]:
+
+                self.indexJumpAlpha = shiftAlpha
+                if xm.is_master_ordinal():
+                    print(self.indexJumpAlpha)
+                status, sizeDB = self.trainOnEpoch(dbLoader, scale)
+
+                if not status:
+                    return False
+
+                shiftIter += sizeDB
+                while shiftAlpha < len(self.modelConfig.iterAlphaJump[scale]) and \
+                        self.modelConfig.iterAlphaJump[scale][shiftAlpha] < shiftIter:
+                    shiftAlpha += 1
+
+            if scale == n_scales - 1:
+                break
+
+            #self.model.addScale(self.modelConfig.depthScales[scale + 1])
+
+            if xm.is_master_ordinal():
+                print(shiftAlpha)
+
+    def trainOnEpoch(self, dbLoader, scale):
+        return True, 100 
+    
     def getDBLoader(self, scale):
         size = pow(2,scale+1)
 
