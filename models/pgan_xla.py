@@ -84,6 +84,8 @@ class XLAProgressiveGAN(BaseGAN):
         return optim.Adam(filter(lambda p: p.requires_grad, self.netG.parameters()),
                           betas=[0, 0.99], lr=self.config.learningRate)
 
+    def optimizeParameters(self, input_batch, inputLabels=None):
+        pass
 
     def updateSolverDeviceTpu(self, device):
 

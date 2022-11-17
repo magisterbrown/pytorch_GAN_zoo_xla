@@ -80,9 +80,7 @@ class PganXlaTrainer(GANTrainer):
             while shiftIter < self.modelConfig.maxIterAtScale[scale]:
 
                 self.indexJumpAlpha = shiftAlpha
-                if xm.is_master_ordinal():
-                    print(self.indexJumpAlpha)
-                status, sizeDB = self.trainOnEpoch(dbLoader, scale)
+                status, sizeDB = self.trainOnEpoch(dbLoader, scale, shiftIter)
 
                 if not status:
                     return False
@@ -100,8 +98,20 @@ class PganXlaTrainer(GANTrainer):
             if xm.is_master_ordinal():
                 print(shiftAlpha)
 
-    def trainOnEpoch(self, dbLoader, scale):
-        return True, 100 
+    def trainOnEpoch(self, dbLoader, scale, shiftIter):
+        steps = 0
+        i = shiftIter
+        for item, data in enumerate(dbLoader, 0):
+            i+=(data[0].shape[0]*8)//16
+            inputs_real, labels= data
+
+            inputs_real = self.inScaleUpdate(i, scale, inputs_real)
+            allLosses = self.model.optimizeParameters(inputs_real,
+                                                          inputLabels=labels)
+            if i <= maxIter:
+               return True, maxIter
+            break
+        return True, i
     
     def getDBLoader(self, scale):
         size = pow(2,scale+1)
@@ -112,6 +122,24 @@ class PganXlaTrainer(GANTrainer):
         loader = torch.utils.data.DataLoader(ds, batch_size=4, drop_last=True)
 
         return loader
+
+    def inScaleUpdate(self, iter, scale, input_real):
+
+        if self.indexJumpAlpha < len(self.modelConfig.iterAlphaJump[scale]):
+            if iter == self.modelConfig.iterAlphaJump[scale][self.indexJumpAlpha]:
+                alpha = self.modelConfig.alphaJumpVals[scale][self.indexJumpAlpha]
+                self.model.updateAlpha(alpha)
+                self.indexJumpAlpha += 1
+
+        if self.model.config.alpha > 0:
+            low_res_real = F.avg_pool2d(input_real, (2, 2))
+            low_res_real = F.upsample(
+                low_res_real, scale_factor=2, mode='nearest')
+
+            alpha = self.model.config.alpha
+            input_real = alpha * low_res_real + (1-alpha) * input_real
+
+        return input_real
 
 
 class Allproc:
