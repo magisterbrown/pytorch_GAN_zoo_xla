@@ -25,6 +25,26 @@ def getTrainer(name):
                       match[name][1],
                       prefix='')
 
+def get_vars(pid: int) -> dict:
+    var = os.popen(f'cat -v /proc/{pid}/environ').read()
+    vals = var.split('^@')
+    res = dict()
+    for val in vals:
+        pair = val.split('=')
+        if len(pair)==2:
+            res[pair[0]] = pair[1]
+
+    return res
+
+def copy_process(pid: int):
+
+    res = get_vars(pid)
+    req = set(res.keys())
+    exis = set(dict(os.environ).keys())
+    toset = req.difference(exis)
+    for seti in toset:
+        os.environ[seti] = res[seti]
+
 
 if __name__ == "__main__":
 
@@ -57,6 +77,7 @@ if __name__ == "__main__":
     parser.add_argument('-S', '--Scale_iter', help="If it applies, scale to work\
                         on")
     parser.add_argument('-v', '--partitionValue', help="Partition's value",
+                            type=str, dest="partition_value")
     parser.add_argument('-p', '--pidCopy', help="Process to copy env from",
                         type=str, dest="pid")
 
@@ -95,7 +116,7 @@ if __name__ == "__main__":
 
     pid = kwargs.get("pid", None)
     if pid is not None:
-        copy
+        copy_process(pid) 
     with open(kwargs["configPath"], 'rb') as file:
         trainingConfig = json.load(file)
 

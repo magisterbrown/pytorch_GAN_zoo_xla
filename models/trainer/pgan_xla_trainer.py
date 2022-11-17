@@ -50,27 +50,18 @@ class PganXlaTrainer(GANTrainer):
 
     def train(self):
         n_scales = len(self.modelConfig.depthScales)
-        print(self.modelConfig.depthScales)
         print(n_scales)
         print('XLA train')
         xmp.spawn(self.mpf, args=(), nprocs=8, start_method='fork')
 
     def mpf(self, index):
-        #print(index)
         self.model.meme+=1
         device = xm.xla_device()  
         self.model.updateSolverDeviceTpu(device)
-        #print(self.model.meme)
-        
+        print(xm.get_ordinal())
+        n_scales = len(self.modelConfig.depthScales)
 
-
-
-
-
-
-
-
-
+        xm.rendezvous('init')
 
 
 

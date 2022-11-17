@@ -1,4 +1,5 @@
 from .base_GAN import BaseGAN
+import torch.optim as optim
 from .utils.config import BaseConfig
 from .networks.progressive_conv_net import GNet, DNet
 import torch_xla.distributed.xla_multiprocessing as xmp
@@ -75,17 +76,27 @@ class XLAProgressiveGAN(BaseGAN):
 
         return xmp.MpModelWrapper(dnet)
 
-    def updateSolverDeviceTpu(device):
+    def getOptimizerD(self):
+        return optim.Adam(filter(lambda p: p.requires_grad, self.netD.parameters()),
+                          betas=[0, 0.99], lr=self.config.learningRate)
 
-        self.netD = self.netD.to(self.device)
-        self.netG = self.netG.to(self.device)
+    def getOptimizerG(self):
+        return optim.Adam(filter(lambda p: p.requires_grad, self.netG.parameters()),
+                          betas=[0, 0.99], lr=self.config.learningRate)
 
-        #self.optimizerD = self.getOptimizerD()
-        #self.optimizerG = self.getOptimizerG()
 
-        #self.optimizerD.zero_grad()
-        #self.optimizerG.zero_grad()
+    def updateSolverDeviceTpu(self, device):
+
+        self.netD = self.netD.to(device)
+        self.netG = self.netG.to(device)
+
+        self.optimizerD = self.getOptimizerD()
+        self.optimizerG = self.getOptimizerG()
+
+        self.optimizerD.zero_grad()
+        self.optimizerG.zero_grad()
 
 
     def updateSolversDevice(self, buildAvG=True):
         pass
+
