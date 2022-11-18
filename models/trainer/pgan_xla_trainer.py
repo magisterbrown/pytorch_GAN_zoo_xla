@@ -80,12 +80,14 @@ class PganXlaTrainer(GANTrainer):
             while shiftIter < self.modelConfig.maxIterAtScale[scale]:
 
                 self.indexJumpAlpha = shiftAlpha
-                status, sizeDB = self.trainOnEpoch(dbLoader, scale, shiftIter)
+                status, sizeDB = self.trainOnEpoch(dbLoader, scale, shiftIter, self.modelConfig.maxIterAtScale[scale])
 
+                if xm.is_master_ordinal():
+                    print(sizeDB)
                 if not status:
                     return False
 
-                shiftIter += sizeDB
+                shiftIter = sizeDB
                 while shiftAlpha < len(self.modelConfig.iterAlphaJump[scale]) and \
                         self.modelConfig.iterAlphaJump[scale][shiftAlpha] < shiftIter:
                     shiftAlpha += 1
@@ -95,20 +97,23 @@ class PganXlaTrainer(GANTrainer):
 
             #self.model.addScale(self.modelConfig.depthScales[scale + 1])
 
-            if xm.is_master_ordinal():
-                print(shiftAlpha)
-
-    def trainOnEpoch(self, dbLoader, scale, shiftIter):
+    def trainOnEpoch(self, dbLoader, scale, shiftIter, maxIter):
         steps = 0
         i = shiftIter
-        for item, data in enumerate(dbLoader, 0):
-            i+=(data[0].shape[0]*8)//16
+        bs = 4
+        datas = [[np.ones((bs,)), 0]]*(6249//bs)
+        #for item, data in enumerate(dbLoader, 0):
+        for item, data in enumerate(datas, 0):
+            incr=(data[0].shape[0]*8)//16
+            i+=incr
             inputs_real, labels= data
 
             inputs_real = self.inScaleUpdate(i, scale, inputs_real)
             allLosses = self.model.optimizeParameters(inputs_real,
                                                           inputLabels=labels)
-            if i <= maxIter:
+            if xm.is_master_ordinal():
+                print(f'Step {i} alpha {self.model.alpha}')
+            if i >= maxIter:
                return True, maxIter
             break
         return True, i

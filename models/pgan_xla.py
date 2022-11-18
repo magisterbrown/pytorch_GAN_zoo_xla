@@ -15,6 +15,7 @@ class XLAProgressiveGAN(BaseGAN):
                  equalizedlR=True,
              **kwargs):
         self.meme = 0
+        self.alpha = 0
         if not 'config' in vars(self):
             self.config = BaseConfig()
         print(kwargs)
@@ -30,6 +31,9 @@ class XLAProgressiveGAN(BaseGAN):
 
         BaseGAN.__init__(self, dimLatentVector, **kwargs)
         pass
+
+    def updateAlpha(self, alpha):
+        self.alpha = alpha
 
     def buildNoiseData(self, n_samples, inputLabels=None):
         return None, None
