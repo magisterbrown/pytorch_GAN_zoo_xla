@@ -154,6 +154,14 @@ class PganXlaTrainer(GANTrainer):
 
         return input_real
 
+class AlphaCalc:
+    def __init__(config):
+        self.maxIterAtScale = config.maxIterAtScale
+        self.alphaNJumps = config.alphaNJumps
+        self.alphaSizeJumps = config.alphaSizeJumps
+
+    def get_scale(step):
+        return 0
 
 class Allproc:
     def __init__(self, key: str, lable: str, side: int):
