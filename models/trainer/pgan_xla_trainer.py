@@ -7,6 +7,7 @@ import webdataset as wds
 import torch
 import numpy as np
 import cv2
+import pandas as pd
 
 class PganXlaTrainer(GANTrainer):
 
@@ -68,6 +69,7 @@ class PganXlaTrainer(GANTrainer):
         device = xm.xla_device()  
         self.model.updateSolverDeviceTpu(device)
         n_scales = len(self.modelConfig.depthScales)
+        store = list()#pd.DataFrame(columns=['scale', 'step', 'alpha'])
 
         for scale in range(self.startScale, n_scales):
             dbLoader = self.getDBLoader(scale)
@@ -80,7 +82,7 @@ class PganXlaTrainer(GANTrainer):
             while shiftIter < self.modelConfig.maxIterAtScale[scale]:
 
                 self.indexJumpAlpha = shiftAlpha
-                status, sizeDB = self.trainOnEpoch(dbLoader, scale, shiftIter, self.modelConfig.maxIterAtScale[scale])
+                status, sizeDB, store = self.trainOnEpoch(dbLoader, scale, shiftIter, self.modelConfig.maxIterAtScale[scale], store)
 
                 if xm.is_master_ordinal():
                     print(sizeDB)
@@ -96,27 +98,33 @@ class PganXlaTrainer(GANTrainer):
                 break
 
             #self.model.addScale(self.modelConfig.depthScales[scale + 1])
+        if xm.is_master_ordinal():
+            store = pd.DataFrame(store)
+            store.to_csv('data/alphalog.csv')
 
-    def trainOnEpoch(self, dbLoader, scale, shiftIter, maxIter):
+    def trainOnEpoch(self, dbLoader, scale, shiftIter, maxIter, store):
         steps = 0
         i = shiftIter
         bs = 4
         datas = [[np.ones((bs,)), 0]]*(6249//bs)
+        #b0 = next(iter(dbLoader))
+        #bs = b0[0].shape[0]
+        #datas = [b0]*(6249//bs)
         #for item, data in enumerate(dbLoader, 0):
         for item, data in enumerate(datas, 0):
             incr=(data[0].shape[0]*8)//16
             i+=incr
             inputs_real, labels= data
+            store.append({'step':i,'alpha':self.model.alpha, 'scale': scale})
 
             inputs_real = self.inScaleUpdate(i, scale, inputs_real)
             allLosses = self.model.optimizeParameters(inputs_real,
                                                           inputLabels=labels)
             if xm.is_master_ordinal():
-                print(f'Step {i} alpha {self.model.alpha}')
+                print(f'Step {i} scale {scale} alpha {self.model.alpha}')
             if i >= maxIter:
-               return True, maxIter
-            break
-        return True, i
+               return True, maxIter, store
+        return True, i, store
     
     def getDBLoader(self, scale):
         size = pow(2,scale+1)
@@ -124,7 +132,7 @@ class PganXlaTrainer(GANTrainer):
         shard = f'gs://monet-cool-gan/cifar_fortpu/b_{xm.get_ordinal()}.tar'
         proc = Allproc('npy','lable',size)
         ds = wds.WebDataset(shard).decode().shuffle(12).map(proc.proc)
-        loader = torch.utils.data.DataLoader(ds, batch_size=4, drop_last=True)
+        loader = torch.utils.data.DataLoader(ds,num_workers=1, batch_size=4, drop_last=True)
 
         return loader
 
