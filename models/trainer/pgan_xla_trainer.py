@@ -136,15 +136,15 @@ class PganXlaTrainer(GANTrainer):
 
         return loader
 
-    def inScaleUpdate(self, iter, scale, input_real):
+    def inScaleUpdate(self, iter, scale, input_real, alpha):
 
-        if self.indexJumpAlpha < len(self.modelConfig.iterAlphaJump[scale]):
-            if iter == self.modelConfig.iterAlphaJump[scale][self.indexJumpAlpha]:
-                alpha = self.modelConfig.alphaJumpVals[scale][self.indexJumpAlpha]
-                self.model.updateAlpha(alpha)
-                self.indexJumpAlpha += 1
+        #if self.indexJumpAlpha < len(self.modelConfig.iterAlphaJump[scale]):
+        #    if iter == self.modelConfig.iterAlphaJump[scale][self.indexJumpAlpha]:
+        #        alpha = self.modelConfig.alphaJumpVals[scale][self.indexJumpAlpha]
+        #        self.indexJumpAlpha += 1
+        self.model.updateAlpha(alpha)
 
-        if self.model.config.alpha > 0:
+        if alpha > 0:
             low_res_real = F.avg_pool2d(input_real, (2, 2))
             low_res_real = F.upsample(
                 low_res_real, scale_factor=2, mode='nearest')
@@ -160,8 +160,18 @@ class AlphaCalc:
         self.alphaNJumps = config.alphaNJumps
         self.alphaSizeJumps = config.alphaSizeJumps
 
-    def get_scale(step):
-        return 0
+    def get_alpha(step, scale):
+        if scale==0:
+            return 0
+
+        steps = self.alphaNJumps[scale]*self.alphaSizeJumps[scale]
+        if step>=steps:
+            return 0
+
+        return 1+step*(-1/steps)
+
+    def should_break(step, scale):
+
 
 class Allproc:
     def __init__(self, key: str, lable: str, side: int):
