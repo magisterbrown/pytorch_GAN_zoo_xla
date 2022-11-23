@@ -78,7 +78,6 @@ class PganXlaTrainer(GANTrainer):
         device = xm.xla_device()  
         self.model.updateSolverDeviceTpu(device)
         n_scales = len(self.modelConfig.depthScales)
-        store = list()#pd.DataFrame(columns=['scale', 'step', 'alpha'])
 
         alcal = AlphaCalc(self.modelConfig)
 
@@ -92,41 +91,22 @@ class PganXlaTrainer(GANTrainer):
 
             while not alcal.should_break(shiftIter, scale):
 
-                #self.indexJumpAlpha = shiftAlpha
-                status, sizeDB, store = self.trainOnEpoch(dbLoader, scale, shiftIter, self.modelConfig.maxIterAtScale[scale], store, alcal)
+                status, sizeDB = self.trainOnEpoch(dbLoader, scale, shiftIter, self.modelConfig.maxIterAtScale[scale], store, alcal)
 
-                if xm.is_master_ordinal():
-                    print(sizeDB)
                 if not status:
                     return False
 
                 shiftIter = sizeDB
-                #while shiftAlpha < len(self.modelConfig.iterAlphaJump[scale]) and \
-                #        self.modelConfig.iterAlphaJump[scale][shiftAlpha] < shiftIter:
-                #    shiftAlpha += 1
 
             if scale == n_scales - 1:
                 break
 
-            #self.model.addScale(self.modelConfig.depthScales[scale + 1])
-        if xm.is_master_ordinal():
-            store = pd.DataFrame(store)
-            store.to_csv('data/alphalog.csv')
-
     def trainOnEpoch(self, dbLoader, scale, shiftIter, maxIter, store, alcal):
-        steps = 0
         i = shiftIter
-        bs = 4
-        datas = [[np.ones((bs,)), 0]]*(6249//bs)
-        #b0 = next(iter(dbLoader))
-        #bs = b0[0].shape[0]
-        #datas = [b0]*(6249//bs)
-        #for item, data in enumerate(dbLoader, 0):
-        for item, data in enumerate(datas, 0):
+        for item, data in enumerate(dbLoader, 0):
             incr=(data[0].shape[0]*8)//16
             i+=incr
             inputs_real, labels= data
-            store.append({'step':i,'alpha':self.model.alpha, 'scale': scale})
 
             inputs_real = self.inScaleUpdate(inputs_real, alcal.get_alpha(i, scale))
             allLosses = self.model.optimizeParameters(inputs_real,
@@ -134,8 +114,8 @@ class PganXlaTrainer(GANTrainer):
             if xm.is_master_ordinal():
                 print(f'Step {i} scale {scale} alpha {self.model.alpha}')
             if alcal.should_break(i, scale):
-               return True, i, store
-        return True, i, store
+               return True, i 
+        return True, i 
     
     def getDBLoader(self, scale):
         size = pow(2,scale+1)
@@ -149,19 +129,15 @@ class PganXlaTrainer(GANTrainer):
 
     def inScaleUpdate(self, input_real, alpha):
 
-        #if self.indexJumpAlpha < len(self.modelConfig.iterAlphaJump[scale]):
-        #    if iter == self.modelConfig.iterAlphaJump[scale][self.indexJumpAlpha]:
-        #        alpha = self.modelConfig.alphaJumpVals[scale][self.indexJumpAlpha]
-        #        self.indexJumpAlpha += 1
         self.model.updateAlpha(alpha)
 
-        #if alpha > 0:
-        #    low_res_real = F.avg_pool2d(input_real, (2, 2))
-        #    low_res_real = F.upsample(
-        #        low_res_real, scale_factor=2, mode='nearest')
+        if alpha > 0:
+            low_res_real = F.avg_pool2d(input_real, (2, 2))
+            low_res_real = F.upsample(
+                low_res_real, scale_factor=2, mode='nearest')
 
-        #    alpha = self.model.config.alpha
-        #    input_real = alpha * low_res_real + (1-alpha) * input_real
+            alpha = self.model.config.alpha
+            input_real = alpha * low_res_real + (1-alpha) * input_real
 
         return input_real
 
