@@ -1,6 +1,7 @@
 from .gan_trainer import GANTrainer
 from ..pgan_xla import XLAProgressiveGAN
 from .standard_configurations.pgan_config import _C
+import torch.nn.functional as F
 import torch_xla.core.xla_model as xm
 import torch_xla.distributed.xla_multiprocessing as xmp
 import webdataset as wds
@@ -14,7 +15,15 @@ class PganXlaTrainer(GANTrainer):
     _defaultConfig = _C
 
     def getDefaultConfig(self):
-        return PganXlaTrainer._defaultConfig
+        config = PganXlaTrainer._defaultConfig 
+
+        config.maxIterAtScale = [
+                      96000,
+                      120000,
+                      120000,
+                      120000    ]
+        return config
+
     def __init__(self, *args, **kwargs):
 
         GANTrainer.__init__(self, pathdb=None)
@@ -71,6 +80,8 @@ class PganXlaTrainer(GANTrainer):
         n_scales = len(self.modelConfig.depthScales)
         store = list()#pd.DataFrame(columns=['scale', 'step', 'alpha'])
 
+        alcal = AlphaCalc(self.modelConfig)
+
         for scale in range(self.startScale, n_scales):
             dbLoader = self.getDBLoader(scale)
             
@@ -79,10 +90,10 @@ class PganXlaTrainer(GANTrainer):
 
             shiftAlpha = 0
 
-            while shiftIter < self.modelConfig.maxIterAtScale[scale]:
+            while not alcal.should_break(shiftIter, scale):
 
-                self.indexJumpAlpha = shiftAlpha
-                status, sizeDB, store = self.trainOnEpoch(dbLoader, scale, shiftIter, self.modelConfig.maxIterAtScale[scale], store)
+                #self.indexJumpAlpha = shiftAlpha
+                status, sizeDB, store = self.trainOnEpoch(dbLoader, scale, shiftIter, self.modelConfig.maxIterAtScale[scale], store, alcal)
 
                 if xm.is_master_ordinal():
                     print(sizeDB)
@@ -90,9 +101,9 @@ class PganXlaTrainer(GANTrainer):
                     return False
 
                 shiftIter = sizeDB
-                while shiftAlpha < len(self.modelConfig.iterAlphaJump[scale]) and \
-                        self.modelConfig.iterAlphaJump[scale][shiftAlpha] < shiftIter:
-                    shiftAlpha += 1
+                #while shiftAlpha < len(self.modelConfig.iterAlphaJump[scale]) and \
+                #        self.modelConfig.iterAlphaJump[scale][shiftAlpha] < shiftIter:
+                #    shiftAlpha += 1
 
             if scale == n_scales - 1:
                 break
@@ -102,7 +113,7 @@ class PganXlaTrainer(GANTrainer):
             store = pd.DataFrame(store)
             store.to_csv('data/alphalog.csv')
 
-    def trainOnEpoch(self, dbLoader, scale, shiftIter, maxIter, store):
+    def trainOnEpoch(self, dbLoader, scale, shiftIter, maxIter, store, alcal):
         steps = 0
         i = shiftIter
         bs = 4
@@ -117,13 +128,13 @@ class PganXlaTrainer(GANTrainer):
             inputs_real, labels= data
             store.append({'step':i,'alpha':self.model.alpha, 'scale': scale})
 
-            inputs_real = self.inScaleUpdate(i, scale, inputs_real)
+            inputs_real = self.inScaleUpdate(inputs_real, alcal.get_alpha(i, scale))
             allLosses = self.model.optimizeParameters(inputs_real,
                                                           inputLabels=labels)
             if xm.is_master_ordinal():
                 print(f'Step {i} scale {scale} alpha {self.model.alpha}')
-            if i >= maxIter:
-               return True, maxIter, store
+            if alcal.should_break(i, scale):
+               return True, i, store
         return True, i, store
     
     def getDBLoader(self, scale):
@@ -136,7 +147,7 @@ class PganXlaTrainer(GANTrainer):
 
         return loader
 
-    def inScaleUpdate(self, iter, scale, input_real, alpha):
+    def inScaleUpdate(self, input_real, alpha):
 
         #if self.indexJumpAlpha < len(self.modelConfig.iterAlphaJump[scale]):
         #    if iter == self.modelConfig.iterAlphaJump[scale][self.indexJumpAlpha]:
@@ -144,23 +155,23 @@ class PganXlaTrainer(GANTrainer):
         #        self.indexJumpAlpha += 1
         self.model.updateAlpha(alpha)
 
-        if alpha > 0:
-            low_res_real = F.avg_pool2d(input_real, (2, 2))
-            low_res_real = F.upsample(
-                low_res_real, scale_factor=2, mode='nearest')
+        #if alpha > 0:
+        #    low_res_real = F.avg_pool2d(input_real, (2, 2))
+        #    low_res_real = F.upsample(
+        #        low_res_real, scale_factor=2, mode='nearest')
 
-            alpha = self.model.config.alpha
-            input_real = alpha * low_res_real + (1-alpha) * input_real
+        #    alpha = self.model.config.alpha
+        #    input_real = alpha * low_res_real + (1-alpha) * input_real
 
         return input_real
 
 class AlphaCalc:
-    def __init__(config):
+    def __init__(self, config):
         self.maxIterAtScale = config.maxIterAtScale
         self.alphaNJumps = config.alphaNJumps
         self.alphaSizeJumps = config.alphaSizeJumps
 
-    def get_alpha(step, scale):
+    def get_alpha(self, step, scale):
         if scale==0:
             return 0
 
@@ -170,7 +181,8 @@ class AlphaCalc:
 
         return 1+step*(-1/steps)
 
-    def should_break(step, scale):
+    def should_break(self, step, scale):
+        return step > self.maxIterAtScale[scale]
 
 
 class Allproc:
