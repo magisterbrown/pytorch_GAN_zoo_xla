@@ -33,7 +33,11 @@ class XLAProgressiveGAN(BaseGAN):
         pass
 
     def updateAlpha(self, alpha):
-        self.alpha = alpha
+
+       self.netG.setNewAlpha(alpha)
+       self.netD.setNewAlpha(alpha)
+
+       self.alpha = alpha
 
     def buildNoiseData(self, n_samples, inputLabels=None):
         return None, None
@@ -89,7 +93,57 @@ class XLAProgressiveGAN(BaseGAN):
                           betas=[0, 0.99], lr=self.config.learningRate)
 
     def optimizeParameters(self, input_batch, inputLabels=None):
-        pass
+        n_samples = input_batch.size()[0]
+        allLosses = dict()
+
+        # Update the discriminator
+        self.optimizerD.zero_grad()
+
+        # #1 Real data
+        predRealD = self.netD(input_batch, False)
+
+        # Classification criterion
+        allLosses["lossD_classif"] = \
+            self.classificationPenalty(predRealD,
+                                       self.realLabels,
+                                       self.config.weightConditionD,
+                                       backward=True)
+
+        lossD = self.lossCriterion.getCriterion(predRealD, True)
+        allLosses["lossD_real"] = lossD.item()
+
+        # #2 Fake data
+        inputLatent, targetRandCat = self.buildNoiseData(n_samples)
+        predFakeG = self.netG(inputLatent).detach()
+        predFakeD = self.netD(predFakeG, False)
+
+        lossDFake = self.lossCriterion.getCriterion(predFakeD, False)
+        allLosses["lossD_fake"] = lossDFake.item()
+        lossD += lossDFake
+
+        # #3 WGANGP gradient loss
+        if self.config.lambdaGP > 0:
+            allLosses["lossD_Grad"] = WGANGPGradientPenalty(self.real_input,
+                                                            predFakeG,
+                                                            self.netD,
+                                                            self.config.lambdaGP,
+                                                            backward=True)
+
+        # #4 Epsilon loss
+        if self.config.epsilonD > 0:
+            lossEpsilon = (predRealD[:, 0] ** 2).sum() * self.config.epsilonD
+            lossD += lossEpsilon
+            allLosses["lossD_Epsilon"] = lossEpsilon.item()
+
+
+
+        lossD.backward(retain_graph=True)
+        finiteCheck(self.netD.parameters())
+        self.optimizerD.step()
+
+        return allLosses
+
+
 
     def updateSolverDeviceTpu(self, device):
 

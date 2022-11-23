@@ -91,7 +91,7 @@ class PganXlaTrainer(GANTrainer):
 
             while not alcal.should_break(shiftIter, scale):
 
-                status, sizeDB = self.trainOnEpoch(dbLoader, scale, shiftIter, self.modelConfig.maxIterAtScale[scale], store, alcal)
+                status, sizeDB = self.trainOnEpoch(dbLoader, scale, shiftIter, self.modelConfig.maxIterAtScale[scale],  alcal)
 
                 if not status:
                     return False
@@ -101,12 +101,15 @@ class PganXlaTrainer(GANTrainer):
             if scale == n_scales - 1:
                 break
 
-    def trainOnEpoch(self, dbLoader, scale, shiftIter, maxIter, store, alcal):
+    def trainOnEpoch(self, dbLoader, scale, shiftIter, maxIter,  alcal):
         i = shiftIter
+        device = xm.xla_device()
         for item, data in enumerate(dbLoader, 0):
             incr=(data[0].shape[0]*8)//16
             i+=incr
             inputs_real, labels= data
+            inputs_real = inputs_real.to(device)
+            labels = labels.to(device)
 
             inputs_real = self.inScaleUpdate(inputs_real, alcal.get_alpha(i, scale))
             allLosses = self.model.optimizeParameters(inputs_real,
